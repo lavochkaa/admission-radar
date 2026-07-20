@@ -204,7 +204,9 @@ HTML_PAGE = r"""<!doctype html>
 
   .table-panel { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
   .table-scroll { overflow: auto; max-height: 560px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  /* border-collapse:collapse ломает position:sticky на th в WebKit (наезжает на
+     строки при скролле) — separate + border-spacing:0 держит и залипание, и вид хairline-границ */
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13.5px; }
   thead th {
     position: sticky; top: 0; background: var(--surface); text-align: left; padding: 12px 16px;
     font: 700 10px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase;
