@@ -173,7 +173,10 @@ COL_PATTERNS = {
 # итоговый ранжирующий балл. "конкурсный балл" — устойчивое название именно него.
 SCORE_STRONG_PATTERN = re.compile(r"конкурс\w*\s*балл|балл\w*\s*конкурс", re.I)
 
-TRUTHY = {"да", "+", "✓", "v", "yes", "true", "1", "подано", "есть", "электронное", "бумажное", "письменное"}
+# колонка "Согласие" у разных вузов пишет "да" по-разному (Электронное/Бумажное/
+# Письменное/Подано/...) — перечислять все варианты бессмысленно, проще считать
+# согласием любое непустое значение, кроме явного "нет"
+FALSY = {"", "нет", "no", "false", "0", "-", "н/д"}
 
 
 def parse_int(s: str) -> Optional[int]:
@@ -182,7 +185,7 @@ def parse_int(s: str) -> Optional[int]:
 
 
 def is_truthy(s: str) -> bool:
-    return (s or "").strip().lower() in TRUTHY
+    return (s or "").strip().lower() not in FALSY
 
 
 def detect_columns(headers: list[str]) -> dict[str, int]:
