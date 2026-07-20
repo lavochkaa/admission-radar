@@ -40,6 +40,17 @@ GENERIC_TITLE_PATTERNS = [
 
 # код направления по ФГОС в начале строки, напр. "09.03.02 Информационные..."
 SPECIALTY_CODE_RE = re.compile(r"^\d{2}\.\d{2}\.\d{2}\b")
+# то же самое, но с захватом кода и остатка строки отдельно — для разбивки на колонки
+SPECIALTY_SPLIT_RE = re.compile(r"^(\d{2}\.\d{2}\.\d{2})\.?\s*(.*)$")
+
+
+def split_specialty(text: str) -> tuple[str, str]:
+    """'09.03.02 Информационные системы и технологии' -> ('09.03.02', 'Информационные системы и технологии').
+    Если кода нет (напр. ЛЭТИ отдаёт только название) — код пустой, текст как есть."""
+    m = SPECIALTY_SPLIT_RE.match(text.strip())
+    if m and m.group(2):
+        return m.group(1), m.group(2).strip()
+    return "", text.strip()
 
 
 def university_name(url: str) -> str:
@@ -129,7 +140,9 @@ async def _get_vuz_page(university: str, context: BrowserContext) -> Optional[st
         return vuz_html
 
 
-async def vuzopedia_budget_places(university: str, specialty: str, context: BrowserContext) -> Optional[int]:
+async def vuzopedia_budget_places(
+    university: str, specialty_code: str, specialty_name: str, context: BrowserContext
+) -> Optional[int]:
     """Ищем на vuzopedia.ru бюджетные места на направление. Платные места и
     квоты там закрыты регистрацией на сайте — не пытаемся их доставать."""
     vuz_html = await _get_vuz_page(university, context)
@@ -137,15 +150,13 @@ async def vuzopedia_budget_places(university: str, specialty: str, context: Brow
         return None
 
     napr_href = None
-    code_match = SPECIALTY_CODE_RE.match(specialty)
-    if code_match:
-        code = code_match.group()
+    if specialty_code:
         for href, label in NAPR_LINK_RE.findall(vuz_html):
-            if f"({code})" in label:
+            if f"({specialty_code})" in label:
                 napr_href = href
                 break
     if not napr_href:
-        name = specialty.strip().lower()
+        name = specialty_name.strip().lower()
         for href, label in NAPR_LINK_RE.findall(vuz_html):
             if name and (name in label.lower() or label.split(" (")[0].strip().lower() == name):
                 napr_href = href
@@ -308,7 +319,9 @@ async def _route_filter(route) -> None:
         await route.continue_()
 
 
-async def fetch_table(url: str, browser: Browser) -> tuple[list[str], list[list[str]], str, str, Optional[int]]:
+async def fetch_table(
+    url: str, browser: Browser
+) -> tuple[list[str], list[list[str]], str, str, str, Optional[int]]:
     context = await browser.new_context()
     try:
         page = await context.new_page()
@@ -335,13 +348,14 @@ async def fetch_table(url: str, browser: Browser) -> tuple[list[str], list[list[
         if not result:
             raise RuntimeError("Таблица не найдена ни в одном фрейме страницы")
 
-        specialty = await detect_specialty(page, context)
-        budget_places = await vuzopedia_budget_places(university_name(url), specialty, context)
+        specialty_raw = await detect_specialty(page, context)
+        specialty_code, specialty_name = split_specialty(specialty_raw)
+        budget_places = await vuzopedia_budget_places(university_name(url), specialty_code, specialty_name, context)
     finally:
         await context.close()
 
     headers, body = result
-    return headers, body, university_name(url), specialty, budget_places
+    return headers, body, university_name(url), specialty_code, specialty_name, budget_places
 
 
 def analyze(headers: list[str], body: list[list[str]], my_score: int) -> dict:
@@ -384,6 +398,7 @@ def print_result(url: str, r: dict) -> None:
     print(f"Вуз:                                              {r['university']}")
     budget = r["budget_places"]
     print(f"Бюджетных мест на направление:                   {budget if budget is not None else 'не найдено'}")
+    print(f"Номер специальности:                              {r['specialty_code'] or '—'}")
     print(f"Специальность:                                    {r['specialty']}")
     print(f"Всего в списке:                                  {r['total']}")
     print(f"Выше по баллам:                                  {r['above']}")
@@ -398,10 +413,11 @@ def print_result(url: str, r: dict) -> None:
 
 
 async def fetch_and_analyze(url: str, my_score: int, browser: Browser) -> dict:
-    headers, body, university, specialty, budget_places = await fetch_table(url, browser)
+    headers, body, university, specialty_code, specialty_name, budget_places = await fetch_table(url, browser)
     r = analyze(headers, body, my_score)
     r["university"] = university
-    r["specialty"] = specialty
+    r["specialty_code"] = specialty_code
+    r["specialty"] = specialty_name
     r["budget_places"] = budget_places
     return r
 

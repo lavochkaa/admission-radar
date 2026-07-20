@@ -275,7 +275,7 @@ HTML_PAGE = r"""<!doctype html>
       <table>
         <thead>
           <tr>
-            <th>#</th><th>Вуз</th><th>Специальность</th>
+            <th>#</th><th>Вуз</th><th>Код</th><th>Специальность</th>
             <th style="text-align:right">Бюджет</th><th style="text-align:right">Всего</th>
             <th style="text-align:right">Выше</th><th style="text-align:right">+П1</th>
             <th style="text-align:right">+Согл</th><th>Источник</th>
@@ -351,6 +351,7 @@ function renderRow(item) {
     tr.innerHTML = `
       <td class="num soft">${rowIndex}</td>
       <td><b>${esc(d.university)}</b></td>
+      <td class="num soft">${d.specialty_code || '—'}</td>
       <td class="ellipsis" title="${esc(d.specialty)}">${esc(d.specialty)}</td>
       <td class="num">${d.budget_places ?? '—'}</td>
       <td class="num">${d.total}</td>
@@ -362,7 +363,7 @@ function renderRow(item) {
   } else {
     tr.innerHTML = `
       <td class="num soft">${rowIndex}</td>
-      <td colspan="7" title="${esc(item.error || '')}">
+      <td colspan="8" title="${esc(item.error || '')}">
         <span class="badge err">ошибка</span>&nbsp; ${esc(item.error || 'неизвестно')}
       </td>
       <td class="ellipsis soft" title="${esc(item.url)}">${esc(hostOf(item.url))}</td>
@@ -425,7 +426,7 @@ function csvField(v) {
 
 function buildCsv(items) {
   const header = [
-    'Ссылка', 'Вуз', 'Бюджетных мест на направление', 'Специальность',
+    'Ссылка', 'Вуз', 'Номер специальности', 'Бюджетных мест на направление', 'Специальность',
     'Всего в списке', 'Выше по баллам', 'Выше с 1-м приоритетом',
     'Выше с 1-м приоритетом и согласием', 'Ошибка',
   ];
@@ -435,6 +436,7 @@ function buildCsv(items) {
     lines.push([
       it.url,
       it.ok ? d.university : '',
+      it.ok ? (d.specialty_code || '') : '',
       it.ok ? (d.budget_places ?? '') : '',
       it.ok ? d.specialty : '',
       it.ok ? d.total : '',
