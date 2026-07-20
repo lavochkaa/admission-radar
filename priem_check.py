@@ -184,6 +184,13 @@ COL_PATTERNS = {
 # итоговый ранжирующий балл. "конкурсный балл" — устойчивое название именно него.
 SCORE_STRONG_PATTERN = re.compile(r"конкурс\w*\s*балл|балл\w*\s*конкурс", re.I)
 
+# то же самое для приоритета: "приорит" матчит и служебные "Основной высший
+# приоритет"/"Высший проходной приоритет" (это пороговые метрики конкурсной
+# группы, не личный приоритет абитуриента) — настоящая колонка почти всегда
+# начинается со слова "Приоритет" (напр. kubstu: "Приоритет" vs декоративные
+# "Основной высший приоритетОВП" перед ней)
+PRIORITY_STRONG_PATTERN = re.compile(r"^приоритет\b", re.I)
+
 # колонка "Согласие" у разных вузов пишет "да" по-разному (Электронное/Бумажное/
 # Письменное/Подано/...) — перечислять все варианты бессмысленно, проще считать
 # согласием любое непустое значение, кроме явного "нет"
@@ -212,6 +219,13 @@ def detect_columns(headers: list[str]) -> dict[str, int]:
     for i, h in enumerate(headers):
         if SCORE_STRONG_PATTERN.search(h or ""):
             idx["score"] = i
+            break
+
+    # аналогично: колонка, начинающаяся именно с "Приоритет", приоритетнее
+    # (простите за каламбур) декоративных "...приоритет..." из общего паттерна
+    for i, h in enumerate(headers):
+        if PRIORITY_STRONG_PATTERN.search(h or ""):
+            idx["priority"] = i
             break
 
     return idx
@@ -290,7 +304,27 @@ async def extract_table_from_frame(frame: Frame) -> Optional[tuple[list[str], li
     data: list[list[str]] = []
     for r in rows:
         cells = await r.query_selector_all("th, td")
-        data.append([(await c.inner_text()).strip() for c in cells])
+        visible = []
+        for c in cells:
+            # колонки-переключатели с style="display:none" (напр. kubstu: "Оригинал
+            # документа", доп. приоритеты) не рендерятся и не имеют данных в теле
+            # таблицы — пропускаем, иначе все индексы после них поедут
+            style = (await c.get_attribute("style") or "").replace(" ", "")
+            if "display:none" not in style:
+                visible.append(c)
+
+        # colspan разворачиваем только если ячеек в строке больше одной — одиночная
+        # растянутая на всю ширину ячейка это баннер/разделитель секций, а не колонки
+        expand = len(visible) > 1
+        row_texts: list[str] = []
+        for c in visible:
+            text = (await c.inner_text()).strip()
+            n = 1
+            if expand:
+                colspan = await c.get_attribute("colspan")
+                n = int(colspan) if colspan and colspan.isdigit() else 1
+            row_texts.extend([text] * n)
+        data.append(row_texts)
 
     # заголовок = первая непустая строка; иногда FastReport делает пару строк заголовков
     header_idx = 0
