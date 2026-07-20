@@ -14,8 +14,12 @@ Ships as both a native desktop app and a CLI. Same engine underneath.
 ![python](https://img.shields.io/badge/python-3.10%2B-black)
 
 <p align="center">
-  <img src="assets/image-1.png" width="72%" alt="Admission Radar desktop app">
-  <img src="assets/image-2.png" width="26%" alt="CSV export opened as a spreadsheet">
+  <img src="assets/image-1.png" width="88%" alt="Admission Radar desktop app"><br>
+  <sub>Native desktop app — dark mode</sub>
+</p>
+<p align="center">
+  <img src="assets/image-2.png" width="88%" alt="CSV export opened as a spreadsheet"><br>
+  <sub>CSV export opened as a spreadsheet</sub>
 </p>
 
 ---
