@@ -13,6 +13,11 @@ Ships as both a native desktop app and a CLI. Same engine underneath.
 ![status](https://img.shields.io/badge/status-personal%20project-black)
 ![python](https://img.shields.io/badge/python-3.10%2B-black)
 
+<p align="center">
+  <img src="assets/image-1.png" width="72%" alt="Admission Radar desktop app">
+  <img src="assets/image-2.png" width="26%" alt="CSV export opened as a spreadsheet">
+</p>
+
 ---
 
 ## English
