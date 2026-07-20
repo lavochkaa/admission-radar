@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.claude/
+*.pyc
+
+# личные списки ссылок и отладочные дампы 
+links.txt
+*.csv
+page.html
+page.png
+network.json
+CLAUDE.md
