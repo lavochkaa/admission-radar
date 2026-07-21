@@ -27,6 +27,7 @@ KNOWN_UNIVERSITIES = {
     "abit.etu.ru": "СПбГЭТУ «ЛЭТИ»",
     "apply.tpu.ru": "ТПУ",
     "spbti.ru": "СПбГТИ(ТУ)",
+    "contest.tusur.ru": "ТУСУР",
 }
 
 # заголовки вкладки, общие для ЛЮБОГО списка на сайте (не содержат название
@@ -36,7 +37,26 @@ GENERIC_TITLE_PATTERNS = [
     re.compile(r"^приемная комиссия", re.I),
     re.compile(r"^личный кабинет", re.I),
     re.compile(r"^списки (поступающих|подавших)", re.I),
+    re.compile(r"^конкурсн\w* списк", re.I),
 ]
+
+# contest.tusur.ru: /#/campaigns/{level}/{form}/contest_groups/{id} — есть
+# публичный JSON с точным названием направления и бюджетными местами напрямую
+TUSUR_URL_RE = re.compile(r"contest\.tusur\.ru/#/campaigns/([\w-]+)/([\w-]+)/contest_groups/([\w-]+)")
+
+
+async def _tusur_contest_group(url: str, context: BrowserContext) -> Optional[dict]:
+    m = TUSUR_URL_RE.search(url)
+    if not m:
+        return None
+    try:
+        resp = await context.request.get(
+            f"https://contest.tusur.ru/api/v1/campaigns/{m.group(1)}/{m.group(2)}/contest_groups/{m.group(3)}"
+        )
+        data = await resp.json()
+        return data.get("contest_group")
+    except Exception:
+        return None
 
 # код направления по ФГОС в начале строки, напр. "09.03.02 Информационные..."
 SPECIALTY_CODE_RE = re.compile(r"^\d{2}\.\d{2}\.\d{2}\b")
@@ -65,8 +85,13 @@ def is_generic_title(title: str) -> bool:
     return any(p.search(title) for p in GENERIC_TITLE_PATTERNS)
 
 
-async def detect_specialty(page: Page, context: BrowserContext) -> str:
+async def detect_specialty(page: Page, context: BrowserContext, tusur_group: Optional[dict] = None) -> str:
     url = page.url
+
+    # tusur: title/h1 у всех списков сайта — общее "Конкурсные списки", зато
+    # публичный JSON отдаёт точное название направления
+    if tusur_group and tusur_group.get("direction"):
+        return tusur_group["direction"]
 
     # ТПУ: название направления не попадает ни в title, ни в заголовки
     # (общие для всех списков сайта) — зато отдаётся публичным JSON без авторизации
@@ -382,9 +407,15 @@ async def fetch_table(
         if not result:
             raise RuntimeError("Таблица не найдена ни в одном фрейме страницы")
 
-        specialty_raw = await detect_specialty(page, context)
+        tusur_group = await _tusur_contest_group(url, context)
+        specialty_raw = await detect_specialty(page, context, tusur_group)
         specialty_code, specialty_name = split_specialty(specialty_raw)
-        budget_places = await vuzopedia_budget_places(university_name(url), specialty_code, specialty_name, context)
+
+        direct_budget = tusur_group.get("budget_places") if tusur_group else None
+        if isinstance(direct_budget, int):
+            budget_places = direct_budget
+        else:
+            budget_places = await vuzopedia_budget_places(university_name(url), specialty_code, specialty_name, context)
     finally:
         await context.close()
 
