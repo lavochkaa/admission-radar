@@ -208,7 +208,7 @@ HTML_PAGE = r"""<!doctype html>
      строки при скролле) — separate + border-spacing:0 держит и залипание, и вид хairline-границ */
   table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13.5px; }
   thead th {
-    position: sticky; top: 0; background: var(--surface); text-align: left; padding: 12px 16px;
+    position: sticky; top: 0; z-index: 1; background: var(--surface); text-align: left; padding: 12px 16px;
     font: 700 10px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase;
     color: var(--soft); border-bottom: 1px solid var(--line); white-space: nowrap;
   }
